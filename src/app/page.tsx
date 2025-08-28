@@ -7,6 +7,7 @@ import { detectMask, DetectMaskOutput } from '@/ai/flows/detect-mask';
 import CameraFeed from '@/components/mask-watch/camera-feed';
 import StatusDisplay from '@/components/mask-watch/status-display';
 import SettingsSheet from '@/components/mask-watch/settings-sheet';
+import SnapshotGallery from '@/components/mask-watch/snapshot-gallery';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +16,13 @@ import { Label } from '@/components/ui/label';
 
 export type DetectionStatus = 'mask' | 'no-mask' | 'detecting' | 'not-sure' | 'no-face';
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export default function Home() {
   const [status, setStatus] = useState<DetectionStatus | null>(null);
   const [sensitivity, setSensitivity] = useState(50);
@@ -22,6 +30,8 @@ export default function Home() {
   const [selectedCamera, setSelectedCamera] = useState<string | undefined>(undefined);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
+  const [boundingBox, setBoundingBox] = useState<BoundingBox | null>(null);
+  const [snapshots, setSnapshots] = useState<string[]>([]);
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,7 +42,7 @@ export default function Home() {
     }
 
     setIsDetecting(true);
-    setStatus('detecting');
+    if (status !== 'detecting') setStatus('detecting');
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -50,9 +60,21 @@ export default function Home() {
     try {
       const result: DetectMaskOutput = await detectMask({ imageDataUri });
       setStatus(result.detection);
+      
+      if (result.box && result.box.x && result.box.y && result.box.width && result.box.height) {
+        setBoundingBox(result.box as BoundingBox);
+      } else {
+        setBoundingBox(null);
+      }
+
+      if (result.detection === 'no-mask') {
+        setSnapshots(prev => [imageDataUri, ...prev.slice(0, 5)]);
+      }
+
     } catch (error) {
       console.error('Detection error:', error);
       setStatus(null);
+      setBoundingBox(null);
       toast({
         variant: 'destructive',
         title: 'Detection Failed',
@@ -61,7 +83,7 @@ export default function Home() {
     } finally {
       setIsDetecting(false);
     }
-  }, [isDetecting, toast]);
+  }, [isDetecting, toast, status]);
 
 
   useEffect(() => {
@@ -108,9 +130,15 @@ export default function Home() {
         if (imageDataUri) {
             setIsDetecting(true);
             setStatus('detecting');
+            setBoundingBox(null);
             try {
                 const result = await detectMask({ imageDataUri });
                 setStatus(result.detection);
+                if (result.box && result.box.x && result.box.y && result.box.width && result.box.height) {
+                  setBoundingBox(result.box as BoundingBox);
+                } else {
+                  setBoundingBox(null);
+                }
             } catch (error) {
                 console.error("Detection error:", error);
                 setStatus(null);
@@ -151,7 +179,7 @@ export default function Home() {
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">
-            <CameraFeed deviceId={selectedCamera} videoRef={videoRef} />
+            <CameraFeed deviceId={selectedCamera} videoRef={videoRef} boundingBox={boundingBox} detectionStatus={status} />
             <Card>
                 <CardContent className="p-4 flex items-center justify-center">
                     <Label htmlFor="upload-image" className="flex flex-col items-center gap-2 cursor-pointer">
@@ -162,8 +190,9 @@ export default function Home() {
                 </CardContent>
             </Card>
           </div>
-          <div className="lg:col-span-1 sticky top-24">
+          <div className="lg:col-span-1 sticky top-24 space-y-6">
             <StatusDisplay status={status} />
+            <SnapshotGallery snapshots={snapshots} />
           </div>
         </div>
       </main>
