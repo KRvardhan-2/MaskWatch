@@ -74,7 +74,7 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId, videoRef, boundingBox
     const containerWidth = containerRef.current.offsetWidth;
     const containerHeight = containerRef.current.offsetHeight;
 
-    const color = detectionStatus === 'mask' ? 'border-green-500' : 'border-red-500';
+    const color = detectionStatus === 'mask' ? '#22c55e' : '#ef4444';
 
     return {
       position: 'absolute',
@@ -82,38 +82,42 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId, videoRef, boundingBox
       top: `${boundingBox.y * containerHeight}px`,
       width: `${boundingBox.width * containerWidth}px`,
       height: `${boundingBox.height * containerHeight}px`,
-      border: `4px solid ${detectionStatus === 'mask' ? '#22c55e' : '#ef4444'}`,
+      border: `4px solid ${color}`,
+      boxShadow: `0 0 20px ${color}, 0 0 10px ${color} inset`,
       transform: 'scaleX(-1)',
-      borderRadius: '8px',
-      boxShadow: '0 0 15px rgba(0,0,0,0.5)',
-      transition: 'all 0.3s ease',
+      borderRadius: '12px',
+      transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
     };
   };
   
   return (
-    <Card className="shadow-lg">
-      <CardContent className="p-2">
-        <div ref={containerRef} className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-900">
+    <Card className="shadow-2xl overflow-hidden group">
+      <CardContent className="p-0">
+        <div ref={containerRef} className="relative aspect-video w-full overflow-hidden bg-slate-900">
           <video
             ref={videoRef}
             autoPlay
             muted
             playsInline
-            className="h-full w-full object-cover transform -scale-x-100"
+            className="h-full w-full object-cover transform -scale-x-100 transition-transform duration-500 group-hover:scale-105"
           />
           {boundingBox && (detectionStatus === 'mask' || detectionStatus === 'no-mask') && <div style={getBoundingBoxStyle()} />}
 
-          {isLoading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
-              <Loader className="h-12 w-12 animate-spin" />
-              <p className="mt-4 text-lg">Starting Camera...</p>
-            </div>
-          )}
-          {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white p-4 text-center">
-              <VideoOff className="h-12 w-12" />
-              <p className="mt-4 text-lg font-semibold">Camera Error</p>
-              <p className="text-sm">{error}</p>
+          {(isLoading || error) && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-white backdrop-blur-sm transition-opacity duration-300">
+              {isLoading && !error && (
+                <>
+                  <Loader className="h-12 w-12 animate-spin" />
+                  <p className="mt-4 text-lg">Starting Camera...</p>
+                </>
+              )}
+              {error && (
+                <div className="text-center p-4">
+                  <VideoOff className="h-12 w-12 mx-auto" />
+                  <p className="mt-4 text-lg font-semibold">Camera Error</p>
+                  <p className="text-sm max-w-xs mx-auto">{error}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -37,7 +37,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const captureAndDetect = useCallback(async () => {
-    if (isDetecting || !videoRef.current || !canvasRef.current) {
+    if (isDetecting || !videoRef.current || !canvasRef.current || videoRef.current.readyState < 3) {
       return;
     }
 
@@ -55,7 +55,7 @@ export default function Home() {
     };
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageDataUri = canvas.toDataURL('image/jpeg');
+    const imageDataUri = canvas.toDataURL('image/jpeg', 0.9);
 
     try {
       const result: DetectMaskOutput = await detectMask({ imageDataUri });
@@ -78,7 +78,7 @@ export default function Home() {
       toast({
         variant: 'destructive',
         title: 'Detection Failed',
-        description: 'Could not analyze the image.',
+        description: 'The AI model could not analyze the image. Please try again.',
       });
     } finally {
       setIsDetecting(false);
@@ -89,7 +89,7 @@ export default function Home() {
   useEffect(() => {
     const detectionInterval = setInterval(() => {
       captureAndDetect();
-    }, 2500);
+    }, 2000); // Increased interval slightly for performance
 
     return () => clearInterval(detectionInterval);
   }, [captureAndDetect]);
@@ -100,14 +100,20 @@ export default function Home() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
           throw new Error("Media devices API not available.");
         }
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        // Attempt to get stream to trigger permission prompt
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
         setCameras(videoDevices);
+
         if (videoDevices.length > 0 && !selectedCamera) {
           setSelectedCamera(videoDevices[0].deviceId);
         }
+        
+        // Stop the initial stream, the CameraFeed component will manage its own
+        stream.getTracks().forEach(track => track.stop());
+
       } catch (err) {
         console.error("Could not get camera list:", err);
         toast({
@@ -145,7 +151,7 @@ export default function Home() {
                 toast({
                     variant: 'destructive',
                     title: 'Detection Failed',
-                    description: 'Could not analyze the image.',
+                    description: 'Could not analyze the uploaded image.',
                 });
             } finally {
                 setIsDetecting(false);
@@ -156,19 +162,19 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
-      <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-md border-b">
+    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900/50">
+      <header className="sticky top-0 z-50 w-full bg-background/90 backdrop-blur-lg border-b border-gray-200 dark:border-gray-800">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div className="bg-primary p-2 rounded-full">
-                <Camera className="h-6 w-6 text-primary-foreground" />
+              <div className="bg-primary/10 p-2 rounded-full border border-primary/20">
+                <Camera className="h-6 w-6 text-primary" />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 MaskWatch
               </h1>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
+            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} className="rounded-full hover:bg-accent">
               <Settings className="h-6 w-6" />
               <span className="sr-only">Settings</span>
             </Button>
@@ -180,11 +186,11 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">
             <CameraFeed deviceId={selectedCamera} videoRef={videoRef} boundingBox={boundingBox} detectionStatus={status} />
-            <Card>
+            <Card className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-4 flex items-center justify-center">
-                    <Label htmlFor="upload-image" className="flex flex-col items-center gap-2 cursor-pointer">
-                        <Upload className="h-8 w-8 text-muted-foreground" />
-                        <span className="text-muted-foreground">Upload an Image for Detection</span>
+                    <Label htmlFor="upload-image" className="group flex flex-col items-center gap-2 cursor-pointer p-4 rounded-lg transition-colors hover:bg-accent/50 w-full">
+                        <Upload className="h-8 w-8 text-muted-foreground group-hover:text-accent-foreground transition-colors" />
+                        <span className="text-muted-foreground group-hover:text-accent-foreground transition-colors">Upload an Image for Detection</span>
                     </Label>
                     <Input id="upload-image" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
                 </CardContent>
