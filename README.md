@@ -77,6 +77,6 @@ The application will be available at `http://localhost:9002`. Open it in your br
 
 This project was created by:
 
-- **[Nikhil](https://www.linkedin.com/in/nikhil-verma-9a6760138/)**
+- **[K Raghu ]  https://github.com/KRvardhan-2**
 
-Feel free to connect and share your thoughts!
+
