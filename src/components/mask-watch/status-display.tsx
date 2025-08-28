@@ -3,7 +3,7 @@
 import type { DetectionStatus } from '@/app/page';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, ScanFace, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, ScanFace, HelpCircle, UserX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import React from 'react';
 
@@ -15,62 +15,81 @@ const statusConfig = {
   mask: {
     title: "Mask Detected",
     Icon: ShieldCheck,
-    badgeVariant: "default",
     badgeText: "Protected",
-    description: "The individual is wearing a mask correctly.",
-    colorClasses: "bg-green-100/50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800",
-    badgeColorClasses: "bg-green-600 hover:bg-green-700 text-white",
+    description: "Looking good! The mask is worn correctly.",
+    cardClasses: "border-green-500/50 bg-green-50 dark:bg-green-900/20",
+    iconClasses: "text-green-500",
+    badgeClasses: "bg-green-500 text-white",
   },
   'no-mask': {
     title: "No Mask Detected",
     Icon: ShieldAlert,
-    badgeVariant: "destructive",
     badgeText: "Vulnerable",
-    description: "The individual is not wearing a mask.",
-    colorClasses: "bg-red-100/50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
-    badgeColorClasses: "bg-red-600 hover:bg-red-700 text-white",
+    description: "Please wear a mask to stay protected.",
+    cardClasses: "border-red-500/50 bg-red-50 dark:bg-red-900/20",
+    iconClasses: "text-red-500",
+    badgeClasses: "bg-red-500 text-white",
+  },
+  'no-face': {
+    title: "No Face Detected",
+    Icon: UserX,
+    badgeText: "Scanning",
+    description: "Point the camera towards a face to begin.",
+    cardClasses: "border-yellow-500/50 bg-yellow-50 dark:bg-yellow-900/20",
+    iconClasses: "text-yellow-500",
+    badgeClasses: "bg-yellow-500 text-white",
+  },
+  'not-sure': {
+    title: "Uncertain",
+    Icon: HelpCircle,
+    badgeText: "Uncertain",
+    description: "Could not determine if a mask is present.",
+    cardClasses: "border-gray-500/50 bg-gray-50 dark:bg-gray-900/20",
+    iconClasses: "text-gray-500",
+    badgeClasses: "bg-gray-500 text-white",
   },
   detecting: {
-    title: "Detecting...",
+    title: "Analyzing...",
     Icon: ScanFace,
-    badgeVariant: "secondary",
     badgeText: "Scanning",
-    description: "Analyzing the camera feed for faces and masks.",
-    colorClasses: "bg-blue-100/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-    badgeColorClasses: "bg-blue-600 hover:bg-blue-700 text-white",
+    description: "The AI is currently analyzing the feed.",
+    cardClasses: "border-blue-500/50 bg-blue-50 dark:bg-blue-900/20",
+    iconClasses: "text-blue-500 animate-pulse",
+    badgeClasses: "bg-blue-500 text-white",
   },
 };
 
 const StatusDisplay: React.FC<StatusDisplayProps> = ({ status }) => {
   const currentStatus = status ? statusConfig[status] : null;
-  
+
   return (
     <Card className={cn(
-      "transition-all duration-500 ease-in-out",
-       currentStatus ? currentStatus.colorClasses : "bg-card"
+      "transition-all duration-300 ease-in-out shadow-lg",
+       currentStatus ? currentStatus.cardClasses : "bg-card"
     )}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">Detection Status</CardTitle>
+        <CardTitle className="text-base font-medium">Detection Status</CardTitle>
         {currentStatus && (
-          <Badge className={cn("transition-colors", currentStatus.badgeColorClasses)}>
+          <Badge className={cn("transition-colors", currentStatus.badgeClasses)}>
             {currentStatus.badgeText}
           </Badge>
         )}
       </CardHeader>
       <CardContent>
         <div 
-          className="flex flex-col items-center justify-center text-center p-6 min-h-[180px]"
+          className="flex flex-col items-center justify-center text-center p-6 min-h-[220px]"
         >
           {currentStatus ? (
-            <div key={status} className="animate-in fade-in-50 duration-500">
-              <currentStatus.Icon className="h-16 w-16 mx-auto" />
-              <h2 className="text-2xl font-bold mt-4">{currentStatus.title}</h2>
-              <p className="text-muted-foreground mt-2">{currentStatus.description}</p>
+            <div key={status} className="animate-in fade-in-50 duration-500 space-y-3">
+              <currentStatus.Icon className={cn("h-20 w-20 mx-auto", currentStatus.iconClasses)} />
+              <h2 className="text-2xl font-bold">{currentStatus.title}</h2>
+              <p className="text-muted-foreground text-sm">{currentStatus.description}</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center">
-              <ScanFace className="h-16 w-16 text-muted-foreground" />
-              <p className="text-muted-foreground mt-2">Awaiting camera feed...</p>
+            <div className="space-y-3">
+              <ScanFace className="h-20 w-20 text-muted-foreground/50 mx-auto" />
+              <h2 className="text-2xl font-bold">Waiting</h2>
+              <p className="text-muted-foreground text-sm">Awaiting camera feed to begin detection.</p>
             </div>
           )}
         </div>

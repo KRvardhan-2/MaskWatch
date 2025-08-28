@@ -19,4 +19,20 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
 )
 Input.displayName = "Input"
 
-export { Input }
+const Label = React.forwardRef<
+  React.ElementRef<'label'>,
+  React.ComponentPropsWithoutRef<'label'>
+>(({ className, ...props }, ref) => (
+  <label
+    ref={ref}
+    className={cn(
+      'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+      className
+    )}
+    {...props}
+  />
+));
+Label.displayName = 'Label';
+
+
+export { Input, Label }

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, RefObject } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { VideoOff, Loader } from 'lucide-react';
 
 interface CameraFeedProps {
   deviceId: string | undefined;
+  videoRef: RefObject<HTMLVideoElement>;
 }
 
-const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId, videoRef }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -60,12 +60,12 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId }) => {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [deviceId]);
+  }, [deviceId, videoRef]);
 
   return (
-    <Card>
+    <Card className="shadow-lg">
       <CardContent className="p-2">
-        <div className="relative aspect-video w-full overflow-hidden rounded-md bg-muted">
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-900">
           <video
             ref={videoRef}
             autoPlay
@@ -74,13 +74,13 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ deviceId }) => {
             className="h-full w-full object-cover transform -scale-x-100"
           />
           {isLoading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white">
               <Loader className="h-12 w-12 animate-spin" />
               <p className="mt-4 text-lg">Starting Camera...</p>
             </div>
           )}
           {error && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-4 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white p-4 text-center">
               <VideoOff className="h-12 w-12" />
               <p className="mt-4 text-lg font-semibold">Camera Error</p>
               <p className="text-sm">{error}</p>

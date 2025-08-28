@@ -1,41 +1,76 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Camera, Settings } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Camera, Settings, Upload } from 'lucide-react';
+import { detectMask, DetectMaskOutput } from '@/ai/flows/detect-mask';
 
 import CameraFeed from '@/components/mask-watch/camera-feed';
 import StatusDisplay from '@/components/mask-watch/status-display';
 import SettingsSheet from '@/components/mask-watch/settings-sheet';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-export type DetectionStatus = 'mask' | 'no-mask' | 'detecting';
+export type DetectionStatus = 'mask' | 'no-mask' | 'detecting' | 'not-sure' | 'no-face';
 
 export default function Home() {
   const [status, setStatus] = useState<DetectionStatus | null>(null);
-  const [sensitivity, setSensitivity] = useState(80);
+  const [sensitivity, setSensitivity] = useState(50);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string | undefined>(undefined);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDetecting, setIsDetecting] = useState(false);
   const { toast } = useToast();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const captureAndDetect = useCallback(async () => {
+    if (isDetecting || !videoRef.current || !canvasRef.current) {
+      return;
+    }
+
+    setIsDetecting(true);
+    setStatus('detecting');
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) {
+        setIsDetecting(false);
+        return;
+    };
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageDataUri = canvas.toDataURL('image/jpeg');
+
+    try {
+      const result: DetectMaskOutput = await detectMask({ imageDataUri });
+      setStatus(result.detection);
+    } catch (error) {
+      console.error('Detection error:', error);
+      setStatus(null);
+      toast({
+        variant: 'destructive',
+        title: 'Detection Failed',
+        description: 'Could not analyze the image.',
+      });
+    } finally {
+      setIsDetecting(false);
+    }
+  }, [isDetecting, toast]);
+
 
   useEffect(() => {
-    const statuses: DetectionStatus[] = ['mask', 'no-mask', 'detecting'];
-    let currentIndex = 0;
-    
     const detectionInterval = setInterval(() => {
-      const random = Math.random();
-      if (random < 0.05) {
-        setStatus('detecting');
-      } else if (random < 0.6) {
-        setStatus('mask');
-      } else {
-        setStatus('no-mask');
-      }
+      captureAndDetect();
     }, 2500);
 
     return () => clearInterval(detectionInterval);
-  }, []);
+  }, [captureAndDetect]);
 
   useEffect(() => {
     async function getCameras() {
@@ -43,10 +78,7 @@ export default function Home() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
           throw new Error("Media devices API not available.");
         }
-        // Request permission to get camera labels
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // Stop the track immediately after getting permission
-        stream.getTracks().forEach(track => track.stop());
+        await navigator.mediaDevices.getUserMedia({ video: true });
         
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
@@ -65,15 +97,46 @@ export default function Home() {
     }
     getCameras();
   }, [selectedCamera, toast]);
+  
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const imageDataUri = e.target?.result as string;
+        if (imageDataUri) {
+            setIsDetecting(true);
+            setStatus('detecting');
+            try {
+                const result = await detectMask({ imageDataUri });
+                setStatus(result.detection);
+            } catch (error) {
+                console.error("Detection error:", error);
+                setStatus(null);
+                toast({
+                    variant: 'destructive',
+                    title: 'Detection Failed',
+                    description: 'Could not analyze the image.',
+                });
+            } finally {
+                setIsDetecting(false);
+            }
+        }
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-sm border-b">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+      <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-md border-b">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <Camera className="h-7 w-7 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight font-headline text-foreground">
+            <div className="flex items-center space-x-3">
+              <div className="bg-primary p-2 rounded-full">
+                <Camera className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 MaskWatch
               </h1>
             </div>
@@ -86,15 +149,26 @@ export default function Home() {
       </header>
 
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
-          <div className="lg:col-span-3">
-            <CameraFeed deviceId={selectedCamera} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            <CameraFeed deviceId={selectedCamera} videoRef={videoRef} />
+            <Card>
+                <CardContent className="p-4 flex items-center justify-center">
+                    <Label htmlFor="upload-image" className="flex flex-col items-center gap-2 cursor-pointer">
+                        <Upload className="h-8 w-8 text-muted-foreground" />
+                        <span className="text-muted-foreground">Upload an Image for Detection</span>
+                    </Label>
+                    <Input id="upload-image" type="file" className="sr-only" onChange={handleFileChange} accept="image/*" />
+                </CardContent>
+            </Card>
           </div>
-          <div className="lg:col-span-2 sticky top-24">
+          <div className="lg:col-span-1 sticky top-24">
             <StatusDisplay status={status} />
           </div>
         </div>
       </main>
+      
+      <canvas ref={canvasRef} className="hidden"></canvas>
 
       <SettingsSheet
         isOpen={isSettingsOpen}
